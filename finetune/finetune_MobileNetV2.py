@@ -9,7 +9,7 @@ TASK_NAME = 'T5'
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 MODEL = 'MobileNetV2_modified'
 SCHEDULER = 'CosineAnnealingLR'
-DATA_PATH = './garbage_26x100'
+DATA_PATH = '../garbage_26x100'
 BATCH_SIZE = 32
 NUM_WORKERS = 2
 EPOCHS = 100
@@ -23,7 +23,7 @@ def main():
 
     # Load Model
     model = get_model(model=MODEL)
-    model.load_state_dict(torch.load(f'./checkpoints/MobileNetV2_modified/T-4/last.pth'))
+    model.load_state_dict(torch.load(f'../checkpoints/MobileNetV2_modified/T-4/last.pth'))
     model = model.to(DEVICE)
 
     # Unfrozen Params
@@ -37,14 +37,14 @@ def main():
 
 
     # Init Train
-    if not os.path.exists(f'./checkpoints/{MODEL}'):
-        os.makedirs(f'./checkpoints/{MODEL}')
-    if not os.path.exists(f'./checkpoints/{MODEL}/{TASK_NAME}'):
-        os.mkdir(f'./checkpoints/{MODEL}/{TASK_NAME}')
+    if not os.path.exists(f'../checkpoints/{MODEL}'):
+        os.makedirs(f'../checkpoints/{MODEL}')
+    if not os.path.exists(f'../checkpoints/{MODEL}/{TASK_NAME}'):
+        os.mkdir(f'../checkpoints/{MODEL}/{TASK_NAME}')
     best_f1 = 0
 
     # Start Training
-    writer = SummaryWriter(log_dir=f'./logs/{MODEL}/{TASK_NAME}')
+    writer = SummaryWriter(log_dir=f'../logs/{MODEL}/{TASK_NAME}')
     optimizer = AdamW([
         {'params': params_backbone_unfrozen, 'lr': 1e-6}, # 骨干用极低 LR
         {'params': params_head, 'lr': 1e-5}                # 头部用稍高 LR
@@ -73,10 +73,10 @@ def main():
             scheduler.step()
 
         if f1 > best_f1:
-            torch.save(model.state_dict(), f'./checkpoints/{MODEL}/{TASK_NAME}/best.pth')
+            torch.save(model.state_dict(), f'../checkpoints/{MODEL}/{TASK_NAME}/best.pth')
             best_f1 = f1
 
-    torch.save(model.state_dict(), f'./checkpoints/{MODEL}/{TASK_NAME}/last.pth')
+    torch.save(model.state_dict(), f'../checkpoints/{MODEL}/{TASK_NAME}/last.pth')
     writer.close()
 
 

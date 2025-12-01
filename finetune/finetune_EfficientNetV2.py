@@ -5,14 +5,14 @@ from utils import *
 from torch.optim import Adam, SGD, AdamW
 
 # HyperParams
-TASK_NAME = 'T6-2'
+TASK_NAME = 'EV2_finetune_1'
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-MODEL = 'MobileNetV3'
+MODEL = 'EfficientNetV2_modified'
 SCHEDULER = 'CosineAnnealingLR'
-DATA_PATH = './garbage_26x100'
+DATA_PATH = '../garbage_26x100'
 BATCH_SIZE = 32
 NUM_WORKERS = 2
-EPOCHS = 100
+EPOCHS = 10
 
 
 def main():
@@ -23,32 +23,56 @@ def main():
 
     # Load Model
     model = get_model(model=MODEL)
-    model.load_state_dict(torch.load(f'./checkpoints/MobileNetV3/T-6-1/last.pth'))
+    model.load_state_dict(torch.load(f'../checkpoints/EfficientNetV2_modified/E_M_init/last.pth'))
     model = model.to(DEVICE)
 
     # Unfrozen Params
+    for param in model.model.blocks[-2:].parameters():
+        param.requires_grad = True
+
+    # 同样解冻 'conv_head' 和它后面的 'bn2'
+    for param in model.model.conv_head.parameters():
+        param.requires_grad = True
+    for param in model.model.bn2.parameters():
+        param.requires_grad = True
+
+    # --- 3. 设置 阶段二 的优化器 (差异化 LR) ---
+    # 头部
     params_head = model.model.classifier.parameters()
-    params_backbone_unfrozen = model.model.features[-7:].parameters()
-    for p in params_backbone_unfrozen:
-        p.requires_grad = True
-    params_backbone_frozen = model.model.features[:-7].parameters()
-    for p in params_backbone_frozen:
-        p.requires_grad = False
+
+    # 解冻的骨干层
+    params_backbone_unfrozen = (
+            list(model.model.blocks[-2:].parameters()) +
+            list(model.model.conv_head.parameters()) +
+            list(model.model.bn2.parameters())
+    )
+
+    # 找出并冻结其余层 (保险起见)
+    # (这包括 blocks[0]...blocks[3], conv_stem, bn1)
+    params_backbone_frozen = (
+            list(model.model.conv_stem.parameters()) +
+            list(model.model.bn1.parameters()) +
+            list(model.model.blocks[:-2].parameters())
+    )
+    for param in params_backbone_frozen:
+        param.requires_grad = False
+
+    # 定义差异化学习率的优化器
+    optimizer = AdamW([
+        {'params': params_backbone_unfrozen, 'lr': 1e-6},  # 骨干
+        {'params': params_head, 'lr': 1e-5}  # 头部
+    ], lr=1e-6, weight_decay=1e-2)  # 强权重衰减
 
 
     # Init Train
-    if not os.path.exists(f'./checkpoints/{MODEL}'):
-        os.makedirs(f'./checkpoints/{MODEL}')
-    if not os.path.exists(f'./checkpoints/{MODEL}/{TASK_NAME}'):
-        os.mkdir(f'./checkpoints/{MODEL}/{TASK_NAME}')
+    if not os.path.exists(f'../checkpoints/{MODEL}'):
+        os.makedirs(f'../checkpoints/{MODEL}')
+    if not os.path.exists(f'../checkpoints/{MODEL}/{TASK_NAME}'):
+        os.mkdir(f'../checkpoints/{MODEL}/{TASK_NAME}')
     best_f1 = 0
 
     # Start Training
-    writer = SummaryWriter(log_dir=f'./logs/{MODEL}/{TASK_NAME}')
-    optimizer = AdamW([
-        {'params': params_backbone_unfrozen, 'lr': 1e-6}, # 骨干用极低 LR
-        {'params': params_head, 'lr': 1e-5}                # 头部用稍高 LR
-        ], lr=1e-5, weight_decay=1e-2)
+    writer = SummaryWriter(log_dir=f'../logs/{MODEL}/{TASK_NAME}')
     # optimizer = Adam(model.parameters(), lr=LR_RATE, weight_decay=1e-3)
     # optimizer = SGD(model.parameters(), lr=LR_RATE, momentum=0.9, weight_decay=1e-3)
     if SCHEDULER is not None:
@@ -73,10 +97,10 @@ def main():
             scheduler.step()
 
         if f1 > best_f1:
-            torch.save(model.state_dict(), f'./checkpoints/{MODEL}/{TASK_NAME}/best.pth')
+            torch.save(model.state_dict(), f'../checkpoints/{MODEL}/{TASK_NAME}/best.pth')
             best_f1 = f1
+        torch.save(model.state_dict(), f'../checkpoints/{MODEL}/{TASK_NAME}/last.pth')
 
-    torch.save(model.state_dict(), f'./checkpoints/{MODEL}/{TASK_NAME}/last.pth')
     writer.close()
 
 
