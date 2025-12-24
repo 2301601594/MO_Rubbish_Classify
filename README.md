@@ -6,10 +6,7 @@
 ├── checkpoints
 ├── convert.py
 ├── dataset.py
-├── finetune_EfficientNetV2.py
-├── finetune_MobileNetV2.py
-├── finetune_MobileNetV3.py
-├── finetune_SeResNext.py
+├── finetune
 ├── garbage_26x100
 ├── logs
 ├── main.py
@@ -21,7 +18,7 @@
 - checkpoints：保存训练好的权重
 - convert.py：将pth文件转换为pt文件
 - dataset.py：定义数据集结构
-- finetune_\*\*\*.py：针对对应模型进行微调
+- finetune：针对对应模型进行微调
 - garbage_26x100：数据集
 - logs：tensorboard文件，记录模型训练指标
 - main.py：训练主程序

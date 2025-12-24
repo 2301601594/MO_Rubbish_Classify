@@ -129,5 +129,5 @@ def eval_fn(model, loss_fn, scheduler, val_loader, device):
 
 if __name__ == '__main__':
     data_path = './garbage_26x100'
-    model = get_model('MobileNetV3')
-    print(model)
+    train_loader, val_loader = get_loader(batch_size=1)
+    print(len(train_loader), len(val_loader))
